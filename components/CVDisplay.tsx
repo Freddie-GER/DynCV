@@ -29,7 +29,25 @@ export default function CVDisplay({ cv }: Props) {
 
         <section>
           <h3 className="font-semibold">Professional Experience</h3>
-          <p className="whitespace-pre-wrap">{cv.experience}</p>
+          <div className="space-y-4">
+            {cv.experience.map((position, index) => (
+              <div key={index} className="pl-4 border-l-2 border-gray-200">
+                <div className="flex justify-between items-start">
+                  <div>
+                    <h4 className="font-medium">{position.title}</h4>
+                    <p className="text-gray-600">{position.company}</p>
+                    {position.location && (
+                      <p className="text-gray-500 text-sm">{position.location}</p>
+                    )}
+                  </div>
+                  <p className="text-gray-500 text-sm whitespace-nowrap">
+                    {position.startDate} - {position.endDate}
+                  </p>
+                </div>
+                <p className="mt-2 whitespace-pre-wrap">{position.description}</p>
+              </div>
+            ))}
+          </div>
         </section>
 
         <section>

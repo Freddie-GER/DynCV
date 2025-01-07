@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
-import { CVData } from '@/data/base-cv'
+import { CVData, Position } from '@/data/base-cv'
 import { JobAnalysis, JobRequirement } from '@/utils/openai'
 
 export default function OptimizationPage() {
@@ -16,14 +16,26 @@ export default function OptimizationPage() {
   useEffect(() => {
     const loadData = async () => {
       try {
-        // Load current CV
-        const cvResponse = await fetch('/api/cv/latest')
-        if (!cvResponse.ok) throw new Error('Failed to load CV')
-        const cvData = await cvResponse.json()
-        setCurrentCV(cvData.cv)
+        // Get application data from session storage
+        const applicationId = sessionStorage.getItem('currentApplicationId')
+        console.log('Application ID from session:', applicationId)
+        if (!applicationId) throw new Error('No application ID found')
+
+        const response = await fetch(`/api/applications/${applicationId}`)
+        if (!response.ok) throw new Error('Failed to load application')
+        const data = await response.json()
+        console.log('Application data:', data)
+        
+        // Parse the base_cv if it's a string
+        const baseCV = typeof data.application.base_cv === 'string' 
+          ? JSON.parse(data.application.base_cv)
+          : data.application.base_cv
+        console.log('Parsed baseCV:', baseCV)
+        setCurrentCV(baseCV)
 
         // Load job description from session storage
         const storedJob = sessionStorage.getItem('jobDescription')
+        console.log('Job description from session:', storedJob ? storedJob.substring(0, 100) + '...' : null)
         if (!storedJob) throw new Error('No job description found')
 
         // Get job analysis
@@ -37,6 +49,7 @@ export default function OptimizationPage() {
 
         if (!analysisResponse.ok) throw new Error('Failed to analyze job description')
         const analysisData = await analysisResponse.json()
+        console.log('Job analysis:', analysisData)
         setJobAnalysis(analysisData.analysis)
       } catch (err) {
         console.error('Failed to load data:', err)
@@ -89,7 +102,29 @@ export default function OptimizationPage() {
             {Object.entries(currentCV).map(([key, value]) => (
               <section key={key} className="bg-white p-4 rounded-lg shadow">
                 <h3 className="font-medium mb-2 capitalize">{key}</h3>
-                <p className="whitespace-pre-wrap text-gray-600">{value}</p>
+                {key === 'experience' ? (
+                  <div className="space-y-4">
+                    {(value as Position[]).map((position, index) => (
+                      <div key={index} className="pl-4 border-l-2 border-gray-200">
+                        <div className="flex justify-between items-start">
+                          <div>
+                            <div className="font-medium">{position.title}</div>
+                            <div className="text-gray-600">{position.company}</div>
+                            {position.location && (
+                              <div className="text-gray-500 text-sm">{position.location}</div>
+                            )}
+                          </div>
+                          <div className="text-gray-500 text-sm whitespace-nowrap">
+                            {position.startDate} - {position.endDate}
+                          </div>
+                        </div>
+                        <p className="mt-2 text-gray-600 whitespace-pre-wrap">{position.description}</p>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="whitespace-pre-wrap text-gray-600">{value as string}</p>
+                )}
               </section>
             ))}
           </div>

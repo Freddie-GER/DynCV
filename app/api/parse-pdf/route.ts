@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import OpenAI from 'openai'
 import PDFParser from 'pdf2json'
-import { CVData } from '@/data/base-cv'
+import { CVData, Position } from '@/data/base-cv'
 
 const openai = new OpenAI()
 
@@ -75,17 +75,30 @@ export async function POST(request: Request) {
       messages: [
         {
           role: 'system',
-          content: 'You are a JSON formatter. Output ONLY valid JSON without any additional text, markdown, or formatting.'
+          content: `You are a CV parser that extracts structured information from CV text. 
+Output ONLY valid JSON without any additional text, markdown, or formatting.
+For the experience section, carefully separate each position into its own object with company, title, startDate, endDate, location (optional), and description fields.
+Dates should be in MM/YYYY format when possible.`
         },
         {
           role: 'user',
-          content: `Convert this CV text into a JSON object with these fields: name (string), contact (string), summary (string), skills (string), experience (string), education (string), languages (string), achievements (string), development (string), memberships (string).
+          content: `Parse this CV text into a JSON object with these fields:
+- name (string)
+- contact (string)
+- summary (string)
+- skills (string)
+- experience (array of objects with: company, title, startDate, endDate, location (optional), description)
+- education (string)
+- languages (string)
+- achievements (string)
+- development (string)
+- memberships (string)
 
 Important:
-1. All fields must be strings, not arrays or objects
-2. Keep original formatting and bullet points in the text
+1. For experience entries, separate each position into its own object
+2. Keep original formatting and bullet points in descriptions
 3. Include all dates and details
-4. If a section is not found, use an empty string
+4. If a section is not found, use an empty string (or empty array for experience)
 5. Return only valid JSON
 
 CV Text:
@@ -104,20 +117,58 @@ ${cvText}`
 
     // Debug Step 6: Parse and validate response
     console.log('\nDEBUG Step 6 - Parsing GPT response')
-    const cvData = JSON.parse(responseContent) as CVData
+    const parsedData = JSON.parse(responseContent)
 
-    // Validate that all required fields are present and are strings
+    // Validate that all required fields are present and have correct types
     const requiredFields: (keyof CVData)[] = [
       'name', 'contact', 'summary', 'skills', 'experience',
       'education', 'languages', 'achievements', 'development', 'memberships'
     ]
 
+    const cvData: CVData = {
+      name: '',
+      contact: '',
+      summary: '',
+      skills: '',
+      experience: [],
+      education: '',
+      languages: '',
+      achievements: '',
+      development: '',
+      memberships: ''
+    }
+
+    // Copy string fields
     for (const field of requiredFields) {
-      if (typeof cvData[field] !== 'string') {
-        console.error(`Invalid type for field ${field}:`, typeof cvData[field])
+      if (field === 'experience') continue // Handle separately
+      if (typeof parsedData[field] !== 'string') {
+        console.error(`Invalid type for field ${field}:`, typeof parsedData[field])
         throw new Error(`Invalid format for field: ${field}`)
       }
+      cvData[field] = parsedData[field]
     }
+
+    // Validate and copy experience array
+    if (!Array.isArray(parsedData.experience)) {
+      console.error('Experience is not an array:', parsedData.experience)
+      throw new Error('Invalid format for experience: expected array')
+    }
+
+    cvData.experience = parsedData.experience.map((exp: any) => {
+      if (!exp.company || !exp.title || !exp.startDate || !exp.endDate || !exp.description) {
+        console.error('Invalid experience entry:', exp)
+        throw new Error('Invalid experience entry: missing required fields')
+      }
+      const position: Position = {
+        company: exp.company,
+        title: exp.title,
+        startDate: exp.startDate,
+        endDate: exp.endDate,
+        description: exp.description
+      }
+      if (exp.location) position.location = exp.location
+      return position
+    })
 
     console.log('\nDEBUG - Successfully parsed CV')
     return NextResponse.json({ cvData })

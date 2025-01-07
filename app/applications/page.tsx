@@ -4,6 +4,19 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 
+interface RawApplication {
+  id: string
+  base_cv: any
+  job_description: string
+  job_title: string
+  employer: string
+  optimized_cv?: any
+  suggestions?: string[]
+  highlights?: string[]
+  created_at: string
+  status: 'in_progress' | 'completed'
+}
+
 interface Application {
   id: string
   baseCV: any
@@ -21,7 +34,6 @@ export default function ApplicationsPage() {
   const [applications, setApplications] = useState<Application[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string>('')
-  const [generatingPDF, setGeneratingPDF] = useState<string | null>(null)
   const [generatingCoverLetter, setGeneratingCoverLetter] = useState<string | null>(null)
   const [selectedApplication, setSelectedApplication] = useState<string | null>(null)
   const [deleting, setDeleting] = useState<string | null>(null)
@@ -36,48 +48,26 @@ export default function ApplicationsPage() {
       const response = await fetch('/api/applications')
       if (!response.ok) throw new Error('Failed to load applications')
       const data = await response.json()
-      setApplications(data.applications)
+      
+      // Map snake_case to camelCase
+      const parsedApplications = data.applications.map((app: RawApplication): Application => ({
+        id: app.id,
+        baseCV: typeof app.base_cv === 'string' ? JSON.parse(app.base_cv) : app.base_cv,
+        jobDescription: app.job_description,
+        jobTitle: app.job_title,
+        employer: app.employer,
+        optimizedCV: app.optimized_cv,
+        suggestions: app.suggestions,
+        highlights: app.highlights,
+        created_at: app.created_at,
+        status: app.status
+      }))
+      
+      setApplications(parsedApplications)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load applications')
     } finally {
       setLoading(false)
-    }
-  }
-
-  const handleGenerateATS = async (applicationId: string) => {
-    try {
-      setGeneratingPDF(applicationId)
-      const application = applications.find(app => app.id === applicationId)
-      if (!application) throw new Error('Application not found')
-
-      const response = await fetch('/api/generate-ats-pdf', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ cv: application.optimizedCV })
-      })
-
-      if (!response.ok) throw new Error('Failed to generate ATS PDF')
-      const data = await response.json()
-
-      // Download PDF
-      const pdfBlob = new Blob(
-        [Buffer.from(data.pdf, 'base64')],
-        { type: 'application/pdf' }
-      )
-      const url = window.URL.createObjectURL(pdfBlob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = `ATS_Optimized_CV_${applicationId}.pdf`
-      document.body.appendChild(a)
-      a.click()
-      window.URL.revokeObjectURL(url)
-      document.body.removeChild(a)
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to generate ATS PDF')
-    } finally {
-      setGeneratingPDF(null)
     }
   }
 
@@ -160,9 +150,12 @@ export default function ApplicationsPage() {
           <div key={application.id} className="bg-white p-6 rounded-lg shadow">
             <div className="flex justify-between items-start mb-4">
               <div>
-                <h2 className="text-xl font-semibold">{application.jobTitle} at {application.employer}</h2>
+                <h2 className="text-xl font-semibold">
+                  {application.jobTitle || 'Untitled Position'} 
+                  {application.employer && ` at ${application.employer}`}
+                </h2>
                 <p className="text-gray-600">Created: {new Date(application.created_at).toLocaleDateString()}</p>
-                <span className={`text-xs px-2 py-1 rounded-full ${
+                <span className={`inline-block mt-2 text-sm px-2 py-1 rounded-full ${
                   application.status === 'completed' 
                     ? 'bg-green-100 text-green-800' 
                     : 'bg-yellow-100 text-yellow-800'
@@ -170,28 +163,34 @@ export default function ApplicationsPage() {
                   {application.status === 'completed' ? 'Completed' : 'In Progress'}
                 </span>
               </div>
-              <div className="space-x-4 flex items-center">
-                {application.optimizedCV && (
+              <div className="space-x-2 flex items-center">
+                {application.status === 'completed' && (
                   <>
                     <Button
                       variant="outline"
-                      onClick={() => handleGenerateATS(application.id)}
-                      disabled={generatingPDF === application.id}
+                      onClick={() => router.push(`/applications/${application.id}/print`)}
                     >
-                      {generatingPDF === application.id ? 'Generating...' : 'Generate ATS PDF'}
+                      Print ATS CV
                     </Button>
                     <Button
                       variant="outline"
                       onClick={() => handleGenerateCoverLetter(application.id)}
                       disabled={generatingCoverLetter === application.id}
                     >
-                      {generatingCoverLetter === application.id ? 'Generating...' : 'Generate Cover Letter'}
+                      {generatingCoverLetter === application.id ? (
+                        <div className="flex items-center gap-2">
+                          <div className="animate-spin h-4 w-4 border-2 border-primary border-t-transparent rounded-full"></div>
+                          <span>Generating...</span>
+                        </div>
+                      ) : (
+                        'Generate Cover Letter'
+                      )}
                     </Button>
                   </>
                 )}
-                {!application.optimizedCV && (
+                {application.status === 'in_progress' && (
                   <Button
-                    onClick={() => router.push(`/optimization?id=${application.id}`)}
+                    onClick={() => router.push(`/optimization/edit?id=${application.id}`)}
                   >
                     Continue Optimization
                   </Button>
@@ -200,31 +199,35 @@ export default function ApplicationsPage() {
                   variant="destructive"
                   onClick={(e) => handleDelete(application.id, e)}
                   disabled={deleting === application.id}
-                  className="ml-4"
                 >
                   {deleting === application.id ? 'Deleting...' : 'Delete'}
                 </Button>
               </div>
             </div>
 
-            {application.optimizedCV && (
-              <div className="grid grid-cols-2 gap-6">
-                <div>
-                  <h3 className="font-medium mb-2">Optimization Highlights</h3>
-                  <ul className="list-disc pl-5 space-y-1">
-                    {application.highlights?.map((highlight, i) => (
-                      <li key={i} className="text-gray-600">{highlight}</li>
-                    ))}
-                  </ul>
-                </div>
-                <div>
-                  <h3 className="font-medium mb-2">Suggestions</h3>
-                  <ul className="list-disc pl-5 space-y-1">
-                    {application.suggestions?.map((suggestion, i) => (
-                      <li key={i} className="text-gray-600">{suggestion}</li>
-                    ))}
-                  </ul>
-                </div>
+            {/* Only show highlights and suggestions if they exist and have content */}
+            {application.status === 'completed' && (
+              <div className="grid grid-cols-2 gap-6 mt-4">
+                {application.highlights && application.highlights.length > 0 && (
+                  <div>
+                    <h3 className="font-medium text-gray-900 mb-2">Optimization Highlights</h3>
+                    <ul className="list-disc pl-5 space-y-1">
+                      {application.highlights.map((highlight, index) => (
+                        <li key={index} className="text-gray-600">{highlight}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+                {application.suggestions && application.suggestions.length > 0 && (
+                  <div>
+                    <h3 className="font-medium text-gray-900 mb-2">Suggestions</h3>
+                    <ul className="list-disc pl-5 space-y-1">
+                      {application.suggestions.map((suggestion, index) => (
+                        <li key={index} className="text-gray-600">{suggestion}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
               </div>
             )}
 

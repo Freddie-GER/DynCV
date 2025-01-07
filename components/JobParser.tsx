@@ -5,16 +5,9 @@ import { Input } from './ui/input'
 import { Button } from './ui/button'
 import { Textarea } from './ui/textarea'
 import CVComparison from './CVComparison'
-import { baseCV, CVData } from '../data/base-cv'
+import { baseCV, CVData, Position } from '../data/base-cv'
 import CVManager from './CVManager'
-
-interface JobAnalysis {
-  title: string;
-  keyRequirements: string[];
-  suggestedSkills: string[];
-  culturalFit: string;
-  recommendedHighlights: string[];
-}
+import { JobAnalysis } from '../types/job-analysis'
 
 interface OptimizedCV {
   content: Partial<CVData>;
@@ -164,7 +157,14 @@ Skills:
 ${currentCV.skills}
 
 Professional Experience:
-${currentCV.experience}
+${currentCV.experience.map((position: Position) => `
+Company: ${position.company}
+Title: ${position.title}
+Period: ${position.startDate} - ${position.endDate}
+${position.location ? `Location: ${position.location}\n` : ''}
+Description:
+${position.description}
+`).join('\n---\n')}
 
 Education:
 ${currentCV.education}
@@ -340,37 +340,80 @@ ${currentCV.memberships}
         <div className="space-y-4">
           <h3 className="text-xl font-semibold">{analysis.title}</h3>
           
-          <div>
-            <h4 className="font-medium mb-2">Key Requirements</h4>
-            <ul className="list-disc pl-5 space-y-1">
-              {analysis.keyRequirements.map((req, i) => (
-                <li key={i}>{req}</li>
-              ))}
-            </ul>
-          </div>
+          <section className="bg-white p-4 rounded-lg shadow">
+            <h3 className="font-medium mb-2">Key Requirements</h3>
+            <div className="space-y-4">
+              <div>
+                <h4 className="text-sm font-medium text-gray-500 mb-2">Explicitly Stated</h4>
+                <ul className="list-disc pl-5 space-y-2">
+                  {analysis.keyRequirements
+                    .filter(req => req.type === 'explicit')
+                    .map((req: JobAnalysis['keyRequirements'][0], i: number) => (
+                      <li key={i} className="relative group">
+                        {req.text}
+                        {req.source && (
+                          <span className="hidden group-hover:block absolute left-0 -top-8 bg-gray-800 text-white p-2 rounded text-sm">
+                            Source: {req.source}
+                          </span>
+                        )}
+                      </li>
+                    ))}
+                </ul>
+              </div>
+              <div>
+                <h4 className="text-sm font-medium text-gray-500 mb-2">Inferred from Context</h4>
+                <ul className="list-disc pl-5 space-y-2 text-gray-600">
+                  {analysis.keyRequirements
+                    .filter(req => req.type === 'inferred')
+                    .map((req: JobAnalysis['keyRequirements'][0], i: number) => (
+                      <li key={i}>{req.text}</li>
+                    ))}
+                </ul>
+              </div>
+            </div>
+          </section>
 
-          <div>
-            <h4 className="font-medium mb-2">Suggested Skills</h4>
-            <ul className="list-disc pl-5 space-y-1">
-              {analysis.suggestedSkills.map((skill, i) => (
-                <li key={i}>{skill}</li>
-              ))}
-            </ul>
-          </div>
+          <section className="bg-white p-4 rounded-lg shadow">
+            <h3 className="font-medium mb-2">Required Skills</h3>
+            <div className="space-y-4">
+              <div>
+                <h4 className="text-sm font-medium text-gray-500 mb-2">Explicitly Stated</h4>
+                <ul className="list-disc pl-5 space-y-2">
+                  {analysis.suggestedSkills
+                    .filter(skill => skill.type === 'explicit')
+                    .map((skill: JobAnalysis['suggestedSkills'][0], i: number) => (
+                      <li key={i} className="relative group">
+                        {skill.text}
+                        {skill.source && (
+                          <span className="hidden group-hover:block absolute left-0 -top-8 bg-gray-800 text-white p-2 rounded text-sm">
+                            Source: {skill.source}
+                          </span>
+                        )}
+                      </li>
+                    ))}
+                </ul>
+              </div>
+              <div>
+                <h4 className="text-sm font-medium text-gray-500 mb-2">Inferred from Context</h4>
+                <ul className="list-disc pl-5 space-y-2 text-gray-600">
+                  {analysis.suggestedSkills
+                    .filter(skill => skill.type === 'inferred')
+                    .map((skill: JobAnalysis['suggestedSkills'][0], i: number) => (
+                      <li key={i}>{skill.text}</li>
+                    ))}
+                </ul>
+              </div>
+            </div>
+          </section>
 
-          <div>
-            <h4 className="font-medium mb-2">Cultural Fit</h4>
-            <p>{analysis.culturalFit}</p>
-          </div>
-
-          <div>
-            <h4 className="font-medium mb-2">Recommended Highlights</h4>
-            <ul className="list-disc pl-5 space-y-1">
-              {analysis.recommendedHighlights.map((highlight, i) => (
+          <section className="bg-white p-4 rounded-lg shadow">
+            <h3 className="font-medium mb-2">Recommended Highlights</h3>
+            <ul className="list-disc pl-5 space-y-2">
+              {analysis.recommendedHighlights.map((highlight: string, i: number) => (
                 <li key={i}>{highlight}</li>
               ))}
             </ul>
-          </div>
+          </section>
 
           <div className="space-y-2">
             <Button 

@@ -18,15 +18,14 @@ export default function JobMatching() {
   const router = useRouter()
 
   useEffect(() => {
-    loadCurrentCV()
+    loadSelectedCV()
   }, [])
 
-  const loadCurrentCV = async () => {
+  const loadSelectedCV = () => {
     try {
-      const response = await fetch('/api/cv/latest')
-      if (!response.ok) throw new Error('Failed to load CV')
-      const data = await response.json()
-      setCurrentCV(data.cv)
+      const storedCV = sessionStorage.getItem('selectedCV')
+      if (!storedCV) throw new Error('No CV found in session')
+      setCurrentCV(JSON.parse(storedCV))
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load CV')
     }

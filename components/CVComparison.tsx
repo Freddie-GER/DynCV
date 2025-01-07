@@ -3,19 +3,7 @@
 import { useState, useEffect } from 'react'
 import { Button } from './ui/button'
 import { Textarea } from './ui/textarea'
-
-interface CVData {
-  name: string
-  contact: string
-  summary: string
-  skills: string
-  experience: string
-  education: string
-  languages: string
-  achievements: string
-  development: string
-  memberships: string
-}
+import { CVData, Position } from '@/data/base-cv'
 
 interface OptimizedCV {
   content: Partial<CVData>
@@ -49,7 +37,7 @@ export default function CVComparison({ baseCV, optimizedCV, jobTitle, onSave }: 
     }
   }
 
-  const handleFieldChange = (field: keyof CVData, value: string) => {
+  const handleFieldChange = (field: keyof CVData, value: any) => {
     if (editedCV) {
       setEditedCV(prev => ({
         ...prev!,
@@ -75,7 +63,27 @@ export default function CVComparison({ baseCV, optimizedCV, jobTitle, onSave }: 
             {changedFields.map(field => (
               <section key={field}>
                 <h4 className="font-medium mb-2">{field.charAt(0).toUpperCase() + field.slice(1)}</h4>
-                <p className="bg-gray-50 p-2 rounded whitespace-pre-wrap">{baseCV[field]}</p>
+                {field === 'experience' ? (
+                  <div className="space-y-4">
+                    {baseCV.experience.map((position, index) => (
+                      <div key={index} className="bg-gray-50 p-2 rounded">
+                        <div className="flex justify-between">
+                          <div>
+                            <div className="font-medium">{position.title}</div>
+                            <div>{position.company}</div>
+                            {position.location && <div className="text-sm">{position.location}</div>}
+                          </div>
+                          <div className="text-sm">
+                            {position.startDate} - {position.endDate}
+                          </div>
+                        </div>
+                        <p className="mt-2 whitespace-pre-wrap">{position.description}</p>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="bg-gray-50 p-2 rounded whitespace-pre-wrap">{baseCV[field]}</p>
+                )}
               </section>
             ))}
           </div>
@@ -88,11 +96,82 @@ export default function CVComparison({ baseCV, optimizedCV, jobTitle, onSave }: 
             {changedFields.map(field => (
               <section key={field}>
                 <h4 className="font-medium mb-2">{field.charAt(0).toUpperCase() + field.slice(1)}</h4>
-                <Textarea
-                  value={editedCV[field]}
-                  onChange={(e) => handleFieldChange(field, e.target.value)}
-                  rows={field === 'experience' ? 8 : field === 'summary' || field === 'skills' ? 4 : 2}
-                />
+                {field === 'experience' ? (
+                  <div className="space-y-4">
+                    {editedCV.experience?.map((position: Position, index: number) => (
+                      <div key={index} className="space-y-2">
+                        <Textarea
+                          value={position.title}
+                          onChange={(e) => {
+                            const newExperience = [...(editedCV.experience || [])]
+                            newExperience[index] = { ...position, title: e.target.value }
+                            handleFieldChange('experience', newExperience)
+                          }}
+                          placeholder="Job Title"
+                          className="font-medium"
+                        />
+                        <Textarea
+                          value={position.company}
+                          onChange={(e) => {
+                            const newExperience = [...(editedCV.experience || [])]
+                            newExperience[index] = { ...position, company: e.target.value }
+                            handleFieldChange('experience', newExperience)
+                          }}
+                          placeholder="Company"
+                        />
+                        <div className="flex gap-2">
+                          <Textarea
+                            value={position.startDate}
+                            onChange={(e) => {
+                              const newExperience = [...(editedCV.experience || [])]
+                              newExperience[index] = { ...position, startDate: e.target.value }
+                              handleFieldChange('experience', newExperience)
+                            }}
+                            placeholder="Start Date"
+                            className="w-1/2"
+                          />
+                          <Textarea
+                            value={position.endDate}
+                            onChange={(e) => {
+                              const newExperience = [...(editedCV.experience || [])]
+                              newExperience[index] = { ...position, endDate: e.target.value }
+                              handleFieldChange('experience', newExperience)
+                            }}
+                            placeholder="End Date"
+                            className="w-1/2"
+                          />
+                        </div>
+                        {position.location && (
+                          <Textarea
+                            value={position.location}
+                            onChange={(e) => {
+                              const newExperience = [...(editedCV.experience || [])]
+                              newExperience[index] = { ...position, location: e.target.value }
+                              handleFieldChange('experience', newExperience)
+                            }}
+                            placeholder="Location"
+                          />
+                        )}
+                        <Textarea
+                          value={position.description}
+                          onChange={(e) => {
+                            const newExperience = [...(editedCV.experience || [])]
+                            newExperience[index] = { ...position, description: e.target.value }
+                            handleFieldChange('experience', newExperience)
+                          }}
+                          placeholder="Description"
+                          rows={4}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <Textarea
+                    value={editedCV[field] as string}
+                    onChange={(e) => handleFieldChange(field, e.target.value)}
+                    rows={field === 'summary' || field === 'skills' ? 4 : 2}
+                  />
+                )}
               </section>
             ))}
             <Button onClick={handleSave} className="mt-4">Save Changes</Button>

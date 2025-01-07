@@ -73,6 +73,7 @@ export default function Home() {
 
   const handleCVChange = (cv: CVData) => {
     setCurrentCV(cv)
+    sessionStorage.setItem('selectedCV', JSON.stringify(cv))
   }
 
   const handleLoadStoredCV = async () => {
@@ -82,6 +83,7 @@ export default function Home() {
       if (!response.ok) throw new Error('Failed to load CV')
       const data = await response.json()
       setCurrentCV(data.cv)
+      sessionStorage.setItem('selectedCV', JSON.stringify(data.cv))
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load CV')
     } finally {
