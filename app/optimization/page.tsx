@@ -30,6 +30,13 @@ export default function OptimizationPage() {
         const baseCV = typeof data.application.base_cv === 'string' 
           ? JSON.parse(data.application.base_cv)
           : data.application.base_cv
+
+        // Ensure experience is an array
+        if (baseCV.experience && !Array.isArray(baseCV.experience)) {
+          baseCV.experience = [];
+          console.warn('Experience field was not an array, defaulting to empty array');
+        }
+
         console.log('Parsed baseCV:', baseCV)
         setCurrentCV(baseCV)
 
@@ -104,7 +111,7 @@ export default function OptimizationPage() {
                 <h3 className="font-medium mb-2 capitalize">{key}</h3>
                 {key === 'experience' ? (
                   <div className="space-y-4">
-                    {(value as Position[]).map((position, index) => (
+                    {Array.isArray(value) ? value.map((position: Position, index) => (
                       <div key={index} className="pl-4 border-l-2 border-gray-200">
                         <div className="flex justify-between items-start">
                           <div>
@@ -120,7 +127,23 @@ export default function OptimizationPage() {
                         </div>
                         <p className="mt-2 text-gray-600 whitespace-pre-wrap">{position.description}</p>
                       </div>
-                    ))}
+                    )) : (
+                      <div className="pl-4 border-l-2 border-gray-200">
+                        <div className="flex justify-between items-start">
+                          <div>
+                            <div className="font-medium">{value.title}</div>
+                            <div className="text-gray-600">{value.company}</div>
+                            {value.location && (
+                              <div className="text-gray-500 text-sm">{value.location}</div>
+                            )}
+                          </div>
+                          <div className="text-gray-500 text-sm whitespace-nowrap">
+                            {value.startDate} - {value.endDate}
+                          </div>
+                        </div>
+                        <p className="mt-2 text-gray-600 whitespace-pre-wrap">{value.description}</p>
+                      </div>
+                    )}
                   </div>
                 ) : (
                   <p className="whitespace-pre-wrap text-gray-600">{value as string}</p>
